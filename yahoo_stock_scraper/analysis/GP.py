@@ -7,9 +7,9 @@ import seaborn as sns
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import Matern, RBF, ConstantKernel as C
 
-# Size of moving average
-window = np.array([10, 50])
 stock_name = 'PIH'
 
 mongo_client = mC('localhost', 27017)
@@ -19,7 +19,7 @@ ind_data = pd.DataFrame(list(ind_stock))
 ind_json = json.loads(ind_data['stock_history'][0])
 
 #Pre-allocation
-n_datapoints = len(ind_json)
+n_datapoints = 500 #len(ind_json)
 dates = np.empty(n_datapoints)
 adj_close_price=np.empty(n_datapoints)
 dates_unix = np.empty(n_datapoints)
@@ -30,25 +30,24 @@ for i in range(n_datapoints):
     dates[i] = date
     dates_unix[i] = ind_json[i]['date']
 
+n_regression = 5000
+x_unix = np.linspace(dates_unix[0]+2000000, dates_unix[-1]-2000000, n_regression)
+kernel = C(1e-10) + Matern(length_scale=1) + RBF(length_scale=3)
+gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+gp.fit(np.reshape(dates_unix, (len(dates_unix), 1)), np.reshape(adj_close_price, (len(adj_close_price), 1)))
+y_plot, sigma_plot = gp.predict(np.reshape(x_unix, (len(x_unix), 1)), return_std=True)
+x_plot = np.empty(n_regression)
+y_plot = y_plot.flatten()
+
+for i in range(n_regression):
+    x_plot[i] = mpl.dates.date2num(datetime.datetime.utcfromtimestamp(x_unix[i]))
+
+print(x_plot.shape)
+print(y_plot.shape)
 fig, ax = plt.subplots()
 sns.lineplot(dates, adj_close_price, ax=ax)
-leg = ['Data']
-#Padding for the linear convolution. Moving average is identical to a convolution with a box filter
-for i in range(window.shape[0]):
-    filter_window = np.ones(window[i]) / window[i]
-    #Padding differs for odd/even
-    if window[i] % 2 == 0:
-        pad_size = int(window[i]/2)
-        padded_acp = np.pad(adj_close_price, (pad_size, pad_size - 1), 'constant',
-                            constant_values=(adj_close_price[0], adj_close_price[-1]))
-    else:
-        pad_size = int(window[i] / 2)
-        padded_acp = np.pad(adj_close_price, (pad_size, pad_size), 'constant',
-                            constant_values=(adj_close_price[0], adj_close_price[-1]))
-
-    mvg_avg = np.convolve(padded_acp, filter_window, 'valid')
-    sns.lineplot(dates, mvg_avg, ax=ax)
-    leg.append(str(window[i])+' moving average')
+sns.lineplot(x_plot, y_plot, ax=ax)
+plt.fill_between(x_plot, y_plot-2*sigma_plot, y_plot+2*sigma_plot, color='b', alpha=0.2)
 
 ax.xaxis.set_major_locator(mpl.dates.YearLocator())
 ax.xaxis.set_major_formatter(mpl.dates.DateFormatter('%Y'))
@@ -60,7 +59,7 @@ ax.set_xlim([datetime.date(int(earliest_date), 1, 1), datetime.date(int(latest_d
 plt.minorticks_on()
 plt.grid(b=True, which='major')
 plt.grid(b=True, which='minor', color='#e6e6e6')
-plt.legend(leg)
+plt.legend(['Data', 'Gaussian Process', 'Uncertainty Bounds'])
 plt.xlabel('Date')
 plt.ylabel('Stock price / USD')
 plt.title(stock_name)
