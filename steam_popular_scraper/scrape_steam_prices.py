@@ -21,7 +21,6 @@ def scrape_page(type, url, multi_url):
     elif type == 'gog':
         scrape_gog(page_html, prices, multi_url)
 
-
 def scrape_gog(html, db_coll, multi_url):
     page_soup = soup(html, "html.parser")
 

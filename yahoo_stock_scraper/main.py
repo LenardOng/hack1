@@ -1,3 +1,5 @@
+# Truncates the required JSON based on keywords, highly susceptible to webpage changes
+
 from bs4 import BeautifulSoup as bsoup
 from urllib.request import urlopen as uReq
 import json
@@ -12,18 +14,22 @@ db = mongo_client['stock_data']
 
 df = pd.read_csv('../data/companylist.csv')
 
-for i in range(len(df["Symbol"])):
+#TODO: Download 313, 451 later
+#TODO: Did not work 356, BHACWS, 373, BNTCW, 400, BVXVW
+
+for i in range(452, len(df["Symbol"])):
     print('Starting iteration number '+str(i))
     stock_id = df["Symbol"][i]
     stock_db = db['stocks']
-
+    print(stock_id)
     url = "https://finance.yahoo.com/quote/"+stock_id+"/history?period1=1377446400&period2=1535212800&interval=1d&filter=history&frequency=1d"
-
     uClient = uReq(url)
     html = uClient.read()
     page_soup = bsoup(html, 'lxml')
     uClient.close()
     check = True
+
+    # Some pages do not work, around 1 in 25
     try:
         script = page_soup.findAll('script')[26]
     except:
@@ -31,7 +37,7 @@ for i in range(len(df["Symbol"])):
         check = False
 
     if check:
-        #Truncate the string
+        #Truncate the string to the required JSON
         data = script.text.split('HistoricalPriceStore')[1]
         data = data.split("gmtOffset",1)[0]
         while data[0] != '[':
