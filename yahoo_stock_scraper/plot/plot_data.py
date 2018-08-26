@@ -15,17 +15,14 @@ db = mongo_client['stock_data']
 ind_stock = db['stocks'].find({'Name':stock_name})
 ind_data = pd.DataFrame(list(ind_stock))
 ind_json = json.loads(ind_data['stock_history'][0])
-dates = []
-adj_close_price=[]
+n_datapoints = len(ind_json)
+dates = np.empty(n_datapoints)
+adj_close_price=np.empty(n_datapoints)
 
-for i in range(len(ind_json)):
-    adj_close_price.append(ind_json[i]['adjclose'])
-    try:
-        date = mpl.dates.date2num(datetime.datetime.utcfromtimestamp(ind_json[i]['date']))
-        dates.append(date)
-        #dates.append(ind_json[i]['date'])
-    except:
-        dates.append(0)
+for i in range(n_datapoints):
+    adj_close_price[i] = ind_json[i]['adjclose']
+    date = mpl.dates.date2num(datetime.datetime.utcfromtimestamp(ind_json[i]['date']))
+    dates[i] = date
 
 fig, ax = plt.subplots()
 sns.lineplot(dates, adj_close_price, ax=ax)
