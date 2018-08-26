@@ -23,7 +23,6 @@ def scrape_page(type, url, multi_url):
 
 def scrape_gog(html, db_coll, multi_url):
     page_soup = soup(html, "html.parser")
-
     return 0
 
 

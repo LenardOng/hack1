@@ -13,10 +13,9 @@ mongo_client = mC('localhost', 27017)
 db = mongo_client['stock_data']
 df = pd.read_csv('../data/companylist.csv')
 
-#TODO: Download 313, 451 later
 #TODO: Did not work 356, BHACWS, 373, BNTCW, 400, BVXVW
 
-for i in range(1520, len(df["Symbol"])):
+for i in range(len(df["Symbol"])):
     current_time = datetime.utcnow().timestamp()
     print('Starting iteration number '+str(i))
     stock_id = df["Symbol"][i]
@@ -45,12 +44,9 @@ for i in range(1520, len(df["Symbol"])):
         while data[len(data)-1] != ']':
             data = data[0:len(data)-1]
 
-        json.loads(data)
-
         price_dict = {"timestamp": current_time,
                       "Name": stock_id,
                       "stock_history": data
                       }
         # Output not required, function call inserts mongoDB item
         _ = stock_db.insert_one(price_dict).inserted_id
-
