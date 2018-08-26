@@ -8,27 +8,37 @@ from pymongo import MongoClient as mC
 current_time = datetime.utcnow().timestamp()
 mongo_client = mC('localhost', 27017)
 db = mongo_client['game_prices']
-prices = db.steam
 
-def steam_scrape(url, multi_url):
+def scrape_page(type, url, multi_url):
 ##### Retrieving HTML information #####
-
+    prices = db[type]
     uClient = uReq(url)
-    steam_html = uClient.read()
+    page_html = uClient.read()
     uClient.close()
 
-    ##### Retrieving the first page information #####
-    steam_soup = soup(steam_html, "html.parser")
-    prod_containers = steam_soup.findAll('a', {'class': 'search_result_row'})
+    if type == 'steam':
+        scrape_steam(page_html, prices, multi_url)
+    elif type == 'gog':
+        scrape_gog(page_html, prices, multi_url)
 
-    #Find the total number of pages
-    page_no_container = steam_soup.find('div', {'class': 'search_pagination_right'})
-    page_indxs = [int(i) for i in page_no_container.stripped_strings if i.isdigit()==True]
+
+def scrape_gog(html, db_coll, multi_url):
+    page_soup = soup(html, "html.parser")
+
+    return 0
+
+
+def scrape_steam(html, db_coll, multi_url):
+    ##### Retrieving the first page information #####
+    page_soup = soup(html, "html.parser")
+    # Find the total number of pages
+    page_no_container = page_soup.find('div', {'class': 'search_pagination_right'})
+    page_indxs = [int(i) for i in page_no_container.stripped_strings if i.isdigit() == True]
     n_pages = max(page_indxs)
 
-    #Adapt for multi pages
-    for i in range(1, n_pages+1):
-        uClient = uReq(multi_url+str(i))
+    # Adapt for multi pages
+    for i in range(1, n_pages + 1):
+        uClient = uReq(multi_url + str(i))
         steam_html = uClient.read()
         uClient.close()
         steam_soup = soup(steam_html, "html.parser")
@@ -57,12 +67,15 @@ def steam_scrape(url, multi_url):
                 discounted_price = temp_price[1]
                 discount_active = 1
 
-            #Preparing document post
+            # Preparing document post
             price_dict = {"timestamp": current_time,
-                    "Name": title_text,
-                    "orig_price": orig_price,
-                    "discount_active": discount_active,
-                    "discounted_price": discounted_price
-                    }
-            #Output not required, function call inserts mongoDB item
-            _ = prices.insert_one(price_dict).inserted_id
+                          "Name": title_text,
+                          "orig_price": orig_price,
+                          "discount_active": discount_active,
+                          "discounted_price": discounted_price
+                          }
+            # Output not required, function call inserts mongoDB item
+            _ = db_coll.insert_one(price_dict).inserted_id
+
+
+
